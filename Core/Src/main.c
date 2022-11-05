@@ -55,7 +55,10 @@ static void MX_USART1_UART_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-
+uint8_t strK1[]="K1 is Pressed\n";
+uint8_t strK2[]="K2 is Pressed\n";
+uint8_t RX_BUFFER[1] = {0};
+uint8_t Rxstr;
 
 /* USER CODE END 0 */
 
@@ -94,14 +97,43 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+  HAL_UART_Receive_IT(&huart1, RX_BUFFER, 1);
   while (1)
   {
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+
+		if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_0) == GPIO_PIN_SET) {
+			HAL_UART_Transmit(&huart1,strK1,sizeof(strK1)-1,100);
+		}
+		if (HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_13) == GPIO_PIN_SET) {
+			HAL_UART_Transmit(&huart1,strK2,sizeof(strK2)-1,100);
+		}
+
+		if (HAL_UART_Receive(&huart1,&Rxstr,1,100)==HAL_OK) {
+		  if (Rxstr == 0x30) {
+				HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0|GPIO_PIN_1|GPIO_PIN_5, GPIO_PIN_SET);
+			}
+			else if (Rxstr == 'R') {
+				HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0|GPIO_PIN_1, GPIO_PIN_SET);
+				HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5, GPIO_PIN_RESET);
+			}
+			else if (Rxstr == 'G') {
+				HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5|GPIO_PIN_1, GPIO_PIN_SET);
+				HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0, GPIO_PIN_RESET);
+			}
+			else if (Rxstr == 'B') {
+				HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5|GPIO_PIN_0, GPIO_PIN_SET);
+				HAL_GPIO_WritePin(GPIOB, GPIO_PIN_1, GPIO_PIN_RESET);
+			}
+		}
+	}
+
   }
   /* USER CODE END 3 */
-}
+
+
 
 /**
   * @brief System Clock Configuration
@@ -179,14 +211,39 @@ static void MX_USART1_UART_Init(void)
   */
 static void MX_GPIO_Init(void)
 {
+  GPIO_InitTypeDef GPIO_InitStruct = {0};
 
   /* GPIO Ports Clock Enable */
+  __HAL_RCC_GPIOC_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
+  __HAL_RCC_GPIOB_CLK_ENABLE();
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0|GPIO_PIN_1|GPIO_PIN_5, GPIO_PIN_SET);
+
+  /*Configure GPIO pin : PA0 */
+  GPIO_InitStruct.Pin = GPIO_PIN_0;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : PB0 PB1 PB5 */
+  GPIO_InitStruct.Pin = GPIO_PIN_0|GPIO_PIN_1|GPIO_PIN_5;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
 }
 
 /* USER CODE BEGIN 4 */
-
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+{
+    if(huart->Instance == huart1.Instance)
+    {
+    HAL_UART_Receive_IT(&huart1, RX_BUFFER, 1);
+    }
+}
 /* USER CODE END 4 */
 
 /**
