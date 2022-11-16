@@ -67,13 +67,16 @@ uint8_t strK2[]="K2 is Pressed\n";
 uint8_t Rxstr;
 
 
-/*PIN note
+/*ARM PIN note
  *
- * PC6 is htim3 channel 1 grab up down
- * PC7 is htim3 channel 2 claw grab
- * PB6 is htim4 channel 1 arm base
- * PB7 is htim4 channel 2 arm arm
- * PB8 is htim4 channel 3 base rotation
+ * timer3 is claw
+ * timer4 is arm
+ *
+ * PA6 is htim3 channel 1 arm base
+ * PA7 is htim3 channel 2 arm arm
+ * PB0 is htim3 channel 3 base rotation
+ * PB6 is htim4 channel 1 claw grab
+ * PB7 is htim4 channel 2 claw up down
  *
  */
 void gradual_change_PWM(TIM_HandleTypeDef* htim, uint32_t channel, uint16_t current, uint16_t new, uint8_t step)
@@ -115,24 +118,57 @@ void gradual_change_PWM(TIM_HandleTypeDef* htim, uint32_t channel, uint16_t curr
 	}
 }
 
-void ARM_stretch(uint32_t distance)
+void ARM_StandByPosition()
 {
-
+	__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, 75); //arm base
+	//HAL_Delay(1000);
+	__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, 75); //arm arm
+	//HAL_Delay(1000);
+	__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_3, 40); //base rotation
+	//HAL_Delay(1000);
+	__HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_1, 18); //grab
+	//HAL_Delay(1000);
+	__HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_2, 15); //claw up down
+	//HAL_Delay(1000);
 }
 
-void ARM_grab()
+void ARM_stretch(uint32_t distance)
 {
+	uint16_t current_tim3_ch1 = __HAL_TIM_GET_COMPARE(&htim3, TIM_CHANNEL_1);
+	uint16_t current_tim3_ch2 = __HAL_TIM_GET_COMPARE(&htim3, TIM_CHANNEL_2);
+	uint16_t current_tim4_ch2 = __HAL_TIM_GET_COMPARE(&htim4, TIM_CHANNEL_2);
 
+	uint16_t new_tim3_ch1 = 60;
+	uint16_t new_tim3_ch2 = 90;
+	uint16_t new_tim4_ch2 = 15;
+
+	//stretch (varies in distance)
+	gradual_change_PWM(&htim3, TIM_CHANNEL_2, current_tim3_ch2, new_tim3_ch2, 5); //arm arm
+	//HAL_Delay(1000);
+	gradual_change_PWM(&htim3, TIM_CHANNEL_1, current_tim3_ch1, new_tim3_ch1, 5); //arm base
+	//HAL_Delay(1000);
+	gradual_change_PWM(&htim4, TIM_CHANNEL_2, current_tim4_ch2, new_tim4_ch2, 5); //claw up down
+	//HAL_Delay(1000);
 }
 
 void ARM_prepare_to_release()
 {
+	//rise the arm to the position so that the ball can directly release when reach on the top of the box
+	uint16_t current_tim3_ch1 = __HAL_TIM_GET_COMPARE(&htim3, TIM_CHANNEL_1);
+	uint16_t current_tim3_ch2 = __HAL_TIM_GET_COMPARE(&htim3, TIM_CHANNEL_2);
+	uint16_t current_tim4_ch2 = __HAL_TIM_GET_COMPARE(&htim4, TIM_CHANNEL_2);
 
-}
+	gradual_change_PWM(&htim4, TIM_CHANNEL_2, current_tim4_ch2, 13, 3); //claw up down
+	//HAL_Delay(1000);
+	gradual_change_PWM(&htim3, TIM_CHANNEL_1, current_tim3_ch1, 100, 5); //arm base
+	//HAL_Delay(1000);
+	gradual_change_PWM(&htim3, TIM_CHANNEL_2, current_tim3_ch2, 90, 5); //arm arm
+	//HAL_Delay(1000);
 
-void ARM_release_and_return()
-{
 
+	//rotate 180 to back
+	__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_3, 240); //base rotation
+	//HAL_Delay(1000);
 }
 /* USER CODE END 0 */
 
@@ -192,10 +228,6 @@ int main(void)
 				HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0|GPIO_PIN_1, GPIO_PIN_SET);
 				HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5, GPIO_PIN_RESET);
 			}
-			else if (Rxstr == 'G') {
-				HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5|GPIO_PIN_1, GPIO_PIN_SET);
-				HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0, GPIO_PIN_RESET);
-			}
 			else if (Rxstr == 'B') {
 				HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5|GPIO_PIN_0, GPIO_PIN_SET);
 				HAL_GPIO_WritePin(GPIOB, GPIO_PIN_1, GPIO_PIN_RESET);
@@ -220,17 +252,61 @@ int main(void)
 				HAL_UART_Transmit(&huart1,"Going right\n", 11 ,100);
 				;
 			}
-			else if (Rxstr == "Adjust arm position to ball"){
+			else if (Rxstr == 'Z'){
+				//adjust the arm, prepare to grab the ball
+				uint32_t distance = 10;
 
+				HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0|GPIO_PIN_1, GPIO_PIN_SET);
+				HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5, GPIO_PIN_RESET);
+				//first find the distance of the ball
+
+
+
+
+				//go to arm position
+				ARM_stretch(distance);
+				HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5, GPIO_PIN_SET);
 			}
-			else if (Rxstr == "Grab") {
-
+			else if (Rxstr == 'X') {
+				//grab the ball
+				HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0|GPIO_PIN_1, GPIO_PIN_SET);
+				HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5, GPIO_PIN_RESET);
+				__HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_1, 11);
+				HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5, GPIO_PIN_SET);
+				//HAL_Delay(1000);
 			}
-			else if (Rxstr == "move arm to the top of the box") {
-
+			else if (Rxstr == 'C') {
+				//prepare the release
+				HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0|GPIO_PIN_1, GPIO_PIN_SET);
+				HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5, GPIO_PIN_RESET);
+				ARM_prepare_to_release();
+				HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5, GPIO_PIN_SET);
 			}
-			else if (Rxstr == "drop (and return to original position)") {
-
+			else if (Rxstr == 'V') {
+				//release the ball and return to standby position
+				HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0|GPIO_PIN_1, GPIO_PIN_SET);
+				HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5, GPIO_PIN_RESET);
+				__HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_1, 18);
+				HAL_Delay(50);
+				ARM_StandByPosition();
+				HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5, GPIO_PIN_SET);
+			}
+			else if (Rxstr == 'N') {
+				//standby
+				//ARM_StandByPosition();
+				HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0|GPIO_PIN_1, GPIO_PIN_SET);
+				HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5, GPIO_PIN_RESET);
+				__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, 75);
+				//HAL_Delay(1000);
+				__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, 75);
+				//HAL_Delay(1000);
+				__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_3, 40);
+				//HAL_Delay(1000);
+				__HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_1, 18);
+				//HAL_Delay(1000);
+				__HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_2, 15);
+				//HAL_Delay(1000);
+				HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5, GPIO_PIN_SET);
 			}
 		}
 	}
@@ -296,7 +372,7 @@ static void MX_TIM3_Init(void)
 
   /* USER CODE END TIM3_Init 1 */
   htim3.Instance = TIM3;
-  htim3.Init.Prescaler = 7200-1;
+  htim3.Init.Prescaler = 720-1;
   htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
   htim3.Init.Period = 200-1;
   htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
@@ -321,7 +397,7 @@ static void MX_TIM3_Init(void)
     Error_Handler();
   }
   sConfigOC.OCMode = TIM_OCMODE_PWM1;
-  sConfigOC.Pulse = 15;
+  sConfigOC.Pulse = 75;
   sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
   sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
   if (HAL_TIM_PWM_ConfigChannel(&htim3, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
@@ -332,8 +408,14 @@ static void MX_TIM3_Init(void)
   {
     Error_Handler();
   }
+  sConfigOC.Pulse = 40;
+  if (HAL_TIM_PWM_ConfigChannel(&htim3, &sConfigOC, TIM_CHANNEL_3) != HAL_OK)
+  {
+    Error_Handler();
+  }
   /* USER CODE BEGIN TIM3_Init 2 */
-
+  HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
+  HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_2);
   /* USER CODE END TIM3_Init 2 */
   HAL_TIM_MspPostInit(&htim3);
 
@@ -359,9 +441,9 @@ static void MX_TIM4_Init(void)
 
   /* USER CODE END TIM4_Init 1 */
   htim4.Instance = TIM4;
-  htim4.Init.Prescaler = 720-1;
+  htim4.Init.Prescaler = 7200-1;
   htim4.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim4.Init.Period = 1000-1;
+  htim4.Init.Period = 200-1;
   htim4.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim4.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim4) != HAL_OK)
@@ -384,7 +466,7 @@ static void MX_TIM4_Init(void)
     Error_Handler();
   }
   sConfigOC.OCMode = TIM_OCMODE_PWM1;
-  sConfigOC.Pulse = 75;
+  sConfigOC.Pulse = 15;
   sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
   sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
   if (HAL_TIM_PWM_ConfigChannel(&htim4, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
@@ -395,13 +477,10 @@ static void MX_TIM4_Init(void)
   {
     Error_Handler();
   }
-  sConfigOC.Pulse = 40;
-  if (HAL_TIM_PWM_ConfigChannel(&htim4, &sConfigOC, TIM_CHANNEL_3) != HAL_OK)
-  {
-    Error_Handler();
-  }
   /* USER CODE BEGIN TIM4_Init 2 */
-
+  HAL_TIM_PWM_Start(&htim4, TIM_CHANNEL_1);
+  HAL_TIM_PWM_Start(&htim4, TIM_CHANNEL_2);
+  HAL_TIM_PWM_Start(&htim4, TIM_CHANNEL_3);
   /* USER CODE END TIM4_Init 2 */
   HAL_TIM_MspPostInit(&htim4);
 
@@ -458,7 +537,7 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4, GPIO_PIN_SET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0|GPIO_PIN_1|GPIO_PIN_5, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_1|GPIO_PIN_5, GPIO_PIN_SET);
 
   /*Configure GPIO pin : PA0 */
   GPIO_InitStruct.Pin = GPIO_PIN_0;
@@ -473,8 +552,8 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : PB0 PB1 PB5 */
-  GPIO_InitStruct.Pin = GPIO_PIN_0|GPIO_PIN_1|GPIO_PIN_5;
+  /*Configure GPIO pins : PB1 PB5 */
+  GPIO_InitStruct.Pin = GPIO_PIN_1|GPIO_PIN_5;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
