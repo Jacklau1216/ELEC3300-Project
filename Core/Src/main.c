@@ -45,7 +45,7 @@
  TIM_HandleTypeDef htim1;
 TIM_HandleTypeDef htim3;
 TIM_HandleTypeDef htim4;
-SRAM_HandleTypeDef hsram1;
+
 UART_HandleTypeDef huart1;
 
 /* USER CODE BEGIN PV */
@@ -200,15 +200,15 @@ int main(void)
   MX_TIM4_Init();
   MX_TIM1_Init();
   /* USER CODE BEGIN 2 */
-  HAL_TIM_PWM_Start(&htim1,TIM_CHANNEL_4);//�??��TIM3_CH2??�PWM输出
-  HAL_GPIO_WritePin(AIN1_GPIO_Port, AIN1_Pin, GPIO_PIN_SET);//??��?��?�BIN1引�?�为低电�?
-  HAL_GPIO_WritePin(AIN2_GPIO_Port, AIN2_Pin, GPIO_PIN_RESET);//??��?��?�BIN2引�?�为高电�?
-  HAL_GPIO_WritePin(BIN1_GPIO_Port, BIN1_Pin, GPIO_PIN_SET);//??��?��?�BIN1引�?�为低电�?
-  HAL_GPIO_WritePin(BIN2_GPIO_Port, BIN2_Pin, GPIO_PIN_RESET);//??��?��?�BIN2引�?�为高电�?
-  HAL_GPIO_WritePin(CIN1_GPIO_Port, CIN1_Pin, GPIO_PIN_SET);//??��?��?�BIN1引�?�为低电�?
-  HAL_GPIO_WritePin(CIN2_GPIO_Port, CIN2_Pin, GPIO_PIN_RESET);//??��?��?�BIN2引�?�为高电�?
-  HAL_GPIO_WritePin(DIN1_GPIO_Port, DIN1_Pin, GPIO_PIN_SET);//??��?��?�BIN1引�?�为低电�?
-  HAL_GPIO_WritePin(DIN2_GPIO_Port, DIN2_Pin, GPIO_PIN_RESET);//??��?��?�BIN2引�?�为高电�?
+  HAL_TIM_PWM_Start(&htim1,TIM_CHANNEL_4);//�???��TIM3_CH2??�PWM输出
+  HAL_GPIO_WritePin(AIN1_GPIO_Port, AIN1_Pin, GPIO_PIN_SET);//??��?��?�BIN1引�?�为低电�??
+  HAL_GPIO_WritePin(AIN2_GPIO_Port, AIN2_Pin, GPIO_PIN_RESET);//??��?��?�BIN2引�?�为高电�??
+  HAL_GPIO_WritePin(BIN1_GPIO_Port, BIN1_Pin, GPIO_PIN_SET);//??��?��?�BIN1引�?�为低电�??
+  HAL_GPIO_WritePin(BIN2_GPIO_Port, BIN2_Pin, GPIO_PIN_RESET);//??��?��?�BIN2引�?�为高电�??
+  HAL_GPIO_WritePin(CIN1_GPIO_Port, CIN1_Pin, GPIO_PIN_SET);//??��?��?�BIN1引�?�为低电�??
+  HAL_GPIO_WritePin(CIN2_GPIO_Port, CIN2_Pin, GPIO_PIN_RESET);//??��?��?�BIN2引�?�为高电�??
+  HAL_GPIO_WritePin(DIN1_GPIO_Port, DIN1_Pin, GPIO_PIN_SET);//??��?��?�BIN1引�?�为低电�??
+  HAL_GPIO_WritePin(DIN2_GPIO_Port, DIN2_Pin, GPIO_PIN_RESET);//??��?��?�BIN2引�?�为高电�??
 //  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4, GPIO_PIN_SET);
 //  HAL_UART_Transmit(&huart1,"AT+UART=115200,1,0\n",2,100);
   /* USER CODE END 2 */
@@ -227,6 +227,7 @@ int main(void)
 		  Ov7725_vsync = 0;
 	  }
     /* USER CODE END WHILE */
+
     /* USER CODE BEGIN 3 */
 		if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_0) == GPIO_PIN_SET) {
 			HAL_UART_Transmit(&huart1,strK1,sizeof(strK1)-1,100);
