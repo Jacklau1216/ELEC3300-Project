@@ -22,7 +22,8 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "bsp_ov7725.h"
+#include "bsp_sccb.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -44,7 +45,7 @@
  TIM_HandleTypeDef htim1;
 TIM_HandleTypeDef htim3;
 TIM_HandleTypeDef htim4;
-
+SRAM_HandleTypeDef hsram1;
 UART_HandleTypeDef huart1;
 
 /* USER CODE BEGIN PV */
@@ -59,7 +60,7 @@ static void MX_TIM3_Init(void);
 static void MX_TIM4_Init(void);
 static void MX_TIM1_Init(void);
 /* USER CODE BEGIN PFP */
-
+volatile uint8_t Ov7725_vsync;
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -199,25 +200,33 @@ int main(void)
   MX_TIM4_Init();
   MX_TIM1_Init();
   /* USER CODE BEGIN 2 */
-  HAL_TIM_PWM_Start(&htim1,TIM_CHANNEL_4);//开启TIM3_CH2的PWM输出
-  HAL_GPIO_WritePin(AIN1_GPIO_Port, AIN1_Pin, GPIO_PIN_SET);//初始化BIN1引脚为低电平
-  HAL_GPIO_WritePin(AIN2_GPIO_Port, AIN2_Pin, GPIO_PIN_RESET);//初始化BIN2引脚为高电平
-  HAL_GPIO_WritePin(BIN1_GPIO_Port, BIN1_Pin, GPIO_PIN_SET);//初始化BIN1引脚为低电平
-  HAL_GPIO_WritePin(BIN2_GPIO_Port, BIN2_Pin, GPIO_PIN_RESET);//初始化BIN2引脚为高电平
-  HAL_GPIO_WritePin(CIN1_GPIO_Port, CIN1_Pin, GPIO_PIN_SET);//初始化BIN1引脚为低电平
-  HAL_GPIO_WritePin(CIN2_GPIO_Port, CIN2_Pin, GPIO_PIN_RESET);//初始化BIN2引脚为高电平
-  HAL_GPIO_WritePin(DIN1_GPIO_Port, DIN1_Pin, GPIO_PIN_SET);//初始化BIN1引脚为低电平
-  HAL_GPIO_WritePin(DIN2_GPIO_Port, DIN2_Pin, GPIO_PIN_RESET);//初始化BIN2引脚为高电平
+  HAL_TIM_PWM_Start(&htim1,TIM_CHANNEL_4);//�??��TIM3_CH2??�PWM输出
+  HAL_GPIO_WritePin(AIN1_GPIO_Port, AIN1_Pin, GPIO_PIN_SET);//??��?��?�BIN1引�?�为低电�?
+  HAL_GPIO_WritePin(AIN2_GPIO_Port, AIN2_Pin, GPIO_PIN_RESET);//??��?��?�BIN2引�?�为高电�?
+  HAL_GPIO_WritePin(BIN1_GPIO_Port, BIN1_Pin, GPIO_PIN_SET);//??��?��?�BIN1引�?�为低电�?
+  HAL_GPIO_WritePin(BIN2_GPIO_Port, BIN2_Pin, GPIO_PIN_RESET);//??��?��?�BIN2引�?�为高电�?
+  HAL_GPIO_WritePin(CIN1_GPIO_Port, CIN1_Pin, GPIO_PIN_SET);//??��?��?�BIN1引�?�为低电�?
+  HAL_GPIO_WritePin(CIN2_GPIO_Port, CIN2_Pin, GPIO_PIN_RESET);//??��?��?�BIN2引�?�为高电�?
+  HAL_GPIO_WritePin(DIN1_GPIO_Port, DIN1_Pin, GPIO_PIN_SET);//??��?��?�BIN1引�?�为低电�?
+  HAL_GPIO_WritePin(DIN2_GPIO_Port, DIN2_Pin, GPIO_PIN_RESET);//??��?��?�BIN2引�?�为高电�?
 //  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4, GPIO_PIN_SET);
 //  HAL_UART_Transmit(&huart1,"AT+UART=115200,1,0\n",2,100);
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+  while(Ov7725_Init() != SUCCESS);
+  	Ov7725_vsync = 0;
+
   while (1)
   {
+	  if (Ov7725_vsync == 2)
+	  {
+		  FIFO_PREPARE;
+		  ImagDisp();
+		  Ov7725_vsync = 0;
+	  }
     /* USER CODE END WHILE */
-
     /* USER CODE BEGIN 3 */
 		if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_0) == GPIO_PIN_SET) {
 			HAL_UART_Transmit(&huart1,strK1,sizeof(strK1)-1,100);
@@ -662,6 +671,10 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
   HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
+
+  /* EXTI interrupt init*/
+  HAL_NVIC_SetPriority(EXTI3_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(EXTI3_IRQn);
 
 }
 

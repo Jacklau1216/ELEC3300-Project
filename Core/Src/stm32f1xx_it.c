@@ -22,6 +22,8 @@
 #include "stm32f1xx_it.h"
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "bsp_ov7725.h"
+extern uint8_t Ov7725_vsync;
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -197,6 +199,40 @@ void SysTick_Handler(void)
 /* For the available peripheral interrupt handler names,                      */
 /* please refer to the startup file (startup_stm32f1xx.s).                    */
 /******************************************************************************/
+
+/**
+  * @brief This function handles EXTI line3 interrupt.
+  */
+void EXTI3_IRQHandler(void)
+{
+  /* USER CODE BEGIN EXTI3_IRQn 0 */
+	if (__HAL_GPIO_EXTI_GET_IT(GPIO_PIN_3) != RESET)
+	  {
+			if( Ov7725_vsync == 0 )
+	    {
+					FIFO_WRST_L();
+	        FIFO_WE_H();
+
+	        Ov7725_vsync = 1;
+	        FIFO_WE_H();
+	        FIFO_WRST_H();
+	    }
+	    else if( Ov7725_vsync == 1 )
+	    {
+	        FIFO_WE_L();
+	        Ov7725_vsync = 2;
+	    }
+
+
+	    __HAL_GPIO_EXTI_CLEAR_IT(GPIO_PIN_3);
+	    HAL_GPIO_EXTI_Callback(GPIO_PIN_3);
+	  }
+  /* USER CODE END EXTI3_IRQn 0 */
+  HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_3);
+  /* USER CODE BEGIN EXTI3_IRQn 1 */
+
+  /* USER CODE END EXTI3_IRQn 1 */
+}
 
 /**
   * @brief This function handles USART1 global interrupt.
