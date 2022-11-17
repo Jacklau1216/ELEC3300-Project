@@ -86,33 +86,23 @@ void gradual_change_PWM(TIM_HandleTypeDef* htim, uint32_t channel, uint16_t curr
 {
 	uint16_t temp = current;
 	uint16_t difference = current - new;
-	while(temp-new != 0)
-	{
-		if(difference > 0) //decrease to new
-		{
-			if(temp - new > step)
-			{
+	while(temp-new != 0) {
+		if(difference > 0) { //decrease to newv
+			if(temp - new > step) {
 				__HAL_TIM_SET_COMPARE(htim, channel, temp-step);
 				HAL_Delay(100);
 				temp -= step;
-			}
-			else
-			{
+			} else {
 				__HAL_TIM_SET_COMPARE(htim, channel, new);
 				HAL_Delay(100);
 				temp = new;
 			}
-		}
-		else if(difference < 0) //increase to new
-		{
-			if(new - temp > step)
-			{
+		} else if(difference < 0) { //increase to new
+			if(new - temp > step) {
 				__HAL_TIM_SET_COMPARE(htim, channel, temp+step);
 				HAL_Delay(100);
 				temp += step;
-			}
-			else
-			{
+			} else {
 				__HAL_TIM_SET_COMPARE(htim, channel, new);
 				HAL_Delay(100);
 				temp = new;
@@ -156,14 +146,13 @@ void ARM_prepare_to_release()
 	uint16_t current_tim3_ch2 = __HAL_TIM_GET_COMPARE(&htim3, TIM_CHANNEL_2);
 	uint16_t current_tim4_ch2 = __HAL_TIM_GET_COMPARE(&htim4, TIM_CHANNEL_2);
 
-	gradual_change_PWM(&htim4, TIM_CHANNEL_2, current_tim4_ch2, 18, 3); //claw up down
+	gradual_change_PWM(&htim4, TIM_CHANNEL_2, current_tim4_ch2, 16, 3); //claw up down
 	gradual_change_PWM(&htim3, TIM_CHANNEL_1, current_tim3_ch1, 100, 5); //arm base
 	gradual_change_PWM(&htim3, TIM_CHANNEL_2, current_tim3_ch2, 80, 5); //arm arm
 
 
 	//rotate 180 to back
 	__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_3, 240); //base rotation
-	//HAL_Delay(1000);
 }
 /* USER CODE END 0 */
 
@@ -200,15 +189,15 @@ int main(void)
   MX_TIM4_Init();
   MX_TIM1_Init();
   /* USER CODE BEGIN 2 */
-  HAL_TIM_PWM_Start(&htim1,TIM_CHANNEL_4);//�???��TIM3_CH2??�PWM输出
-  HAL_GPIO_WritePin(AIN1_GPIO_Port, AIN1_Pin, GPIO_PIN_SET);//??��?��?�BIN1引�?�为低电�??
-  HAL_GPIO_WritePin(AIN2_GPIO_Port, AIN2_Pin, GPIO_PIN_RESET);//??��?��?�BIN2引�?�为高电�??
-  HAL_GPIO_WritePin(BIN1_GPIO_Port, BIN1_Pin, GPIO_PIN_SET);//??��?��?�BIN1引�?�为低电�??
-  HAL_GPIO_WritePin(BIN2_GPIO_Port, BIN2_Pin, GPIO_PIN_RESET);//??��?��?�BIN2引�?�为高电�??
-  HAL_GPIO_WritePin(CIN1_GPIO_Port, CIN1_Pin, GPIO_PIN_SET);//??��?��?�BIN1引�?�为低电�??
-  HAL_GPIO_WritePin(CIN2_GPIO_Port, CIN2_Pin, GPIO_PIN_RESET);//??��?��?�BIN2引�?�为高电�??
-  HAL_GPIO_WritePin(DIN1_GPIO_Port, DIN1_Pin, GPIO_PIN_SET);//??��?��?�BIN1引�?�为低电�??
-  HAL_GPIO_WritePin(DIN2_GPIO_Port, DIN2_Pin, GPIO_PIN_RESET);//??��?��?�BIN2引�?�为高电�??
+  HAL_TIM_PWM_Start(&htim1,TIM_CHANNEL_4);//�???��TIM3_CH2??�PWM输出
+  HAL_GPIO_WritePin(AIN1_GPIO_Port, AIN1_Pin, GPIO_PIN_SET);//??��?��?�BIN1引�?�为低电�??
+  HAL_GPIO_WritePin(AIN2_GPIO_Port, AIN2_Pin, GPIO_PIN_RESET);//??��?��?�BIN2引�?�为高电�??
+  HAL_GPIO_WritePin(BIN1_GPIO_Port, BIN1_Pin, GPIO_PIN_SET);//??��?��?�BIN1引�?�为低电�??
+  HAL_GPIO_WritePin(BIN2_GPIO_Port, BIN2_Pin, GPIO_PIN_RESET);//??��?��?�BIN2引�?�为高电�??
+  HAL_GPIO_WritePin(CIN1_GPIO_Port, CIN1_Pin, GPIO_PIN_SET);//??��?��?�BIN1引�?�为低电�??
+  HAL_GPIO_WritePin(CIN2_GPIO_Port, CIN2_Pin, GPIO_PIN_RESET);//??��?��?�BIN2引�?�为高电�??
+  HAL_GPIO_WritePin(DIN1_GPIO_Port, DIN1_Pin, GPIO_PIN_SET);//??��?��?�BIN1引�?�为低电�??
+  HAL_GPIO_WritePin(DIN2_GPIO_Port, DIN2_Pin, GPIO_PIN_RESET);//??��?��?�BIN2引�?�为高电�??
 //  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4, GPIO_PIN_SET);
 //  HAL_UART_Transmit(&huart1,"AT+UART=115200,1,0\n",2,100);
   /* USER CODE END 2 */
