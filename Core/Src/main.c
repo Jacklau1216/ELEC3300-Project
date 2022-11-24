@@ -87,7 +87,7 @@ void gradual_change_PWM(TIM_HandleTypeDef* htim, uint32_t channel, uint16_t curr
 	uint16_t temp = current;
 	uint16_t difference = current - new;
 	while(temp-new != 0) {
-		if(difference > 0) { //decrease to newv
+		if(difference > 0) { //decrease to new
 			if(temp - new > step) {
 				__HAL_TIM_SET_COMPARE(htim, channel, temp-step);
 				HAL_Delay(100);
@@ -113,9 +113,11 @@ void gradual_change_PWM(TIM_HandleTypeDef* htim, uint32_t channel, uint16_t curr
 
 void ARM_StandByPosition()
 {
-	__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, 130);
-	__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, 60);
-	__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_3, 40);
+	//__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, 180);
+	//HAL_Delay(500);
+	__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, 150);
+	__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, 250);
+	__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_3, 50);
 	__HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_1, 15);
 	__HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_2, 8);
 	HAL_Delay(300);
@@ -127,16 +129,19 @@ void ARM_stretch(uint32_t distance)
 	uint16_t current_tim3_ch2 = __HAL_TIM_GET_COMPARE(&htim3, TIM_CHANNEL_2);
 	uint16_t current_tim4_ch2 = __HAL_TIM_GET_COMPARE(&htim4, TIM_CHANNEL_2);
 
-	uint16_t new_tim3_ch1 = 90;
-	uint16_t new_tim3_ch2 = 80;
-	uint16_t new_tim4_ch2 = 11;
+	uint16_t new_tim3_ch2 = 220; //arm arm
+	uint16_t new_tim3_ch1 = 100; //arm base
+	uint16_t new_tim4_ch2 = 13; //claw up down
+
+	//calculate the PWM by the distance: range is 5 to 15 cm
+
 
 	//stretch (varies in distance)
-	__HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_1, 18); //claw grab
+	__HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_1, 17); //claw grab
+	gradual_change_PWM(&htim4, TIM_CHANNEL_2, current_tim4_ch2, new_tim4_ch2, 5); //claw up down
 	HAL_Delay(100);
 	gradual_change_PWM(&htim3, TIM_CHANNEL_2, current_tim3_ch2, new_tim3_ch2, 5); //arm arm
 	gradual_change_PWM(&htim3, TIM_CHANNEL_1, current_tim3_ch1, new_tim3_ch1, 5); //arm base
-	gradual_change_PWM(&htim4, TIM_CHANNEL_2, current_tim4_ch2, new_tim4_ch2, 5); //claw up down
 }
 
 void ARM_prepare_to_release()
@@ -146,13 +151,18 @@ void ARM_prepare_to_release()
 	uint16_t current_tim3_ch2 = __HAL_TIM_GET_COMPARE(&htim3, TIM_CHANNEL_2);
 	uint16_t current_tim4_ch2 = __HAL_TIM_GET_COMPARE(&htim4, TIM_CHANNEL_2);
 
-	gradual_change_PWM(&htim4, TIM_CHANNEL_2, current_tim4_ch2, 16, 3); //claw up down
-	gradual_change_PWM(&htim3, TIM_CHANNEL_1, current_tim3_ch1, 100, 5); //arm base
-	gradual_change_PWM(&htim3, TIM_CHANNEL_2, current_tim3_ch2, 80, 5); //arm arm
+	gradual_change_PWM(&htim4, TIM_CHANNEL_2, current_tim4_ch2, 11, 3); //claw up down
+	//__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, 100); //arm arm
 
+
+	gradual_change_PWM(&htim3, TIM_CHANNEL_2, current_tim3_ch2, 230, 5); //arm arm
+	//__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, 170); //arm base
+	HAL_Delay(500);
+	__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, 180); //arm base
+	gradual_change_PWM(&htim3, TIM_CHANNEL_1, current_tim3_ch1, 170, 5); //arm base
 
 	//rotate 180 to back
-	__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_3, 240); //base rotation
+	__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_3, 200); //base rotation
 }
 /* USER CODE END 0 */
 
@@ -219,7 +229,18 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
 		if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_0) == GPIO_PIN_SET) {
-			HAL_UART_Transmit(&huart1,strK1,sizeof(strK1)-1,100);
+			//HAL_UART_Transmit(&huart1,strK1,sizeof(strK1)-1,100);
+			HAL_GPIO_WritePin(GPIOB, GPIO_PIN_1, GPIO_PIN_SET);
+			HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5, GPIO_PIN_RESET);
+			ARM_stretch(10);
+			HAL_Delay(500);
+			__HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_1, 11);
+			HAL_Delay(500);
+			__HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_1, 18);
+			HAL_Delay(500);
+			ARM_StandByPosition();
+			HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5, GPIO_PIN_SET);
+			HAL_GPIO_WritePin(GPIOB, GPIO_PIN_1, GPIO_PIN_RESET);
 		}
 
 		if (HAL_UART_Receive(&huart1,&Rxstr,1,100)==HAL_OK) {
@@ -484,7 +505,7 @@ static void MX_TIM1_Init(void)
     Error_Handler();
   }
   sConfigOC.OCMode = TIM_OCMODE_PWM1;
-  sConfigOC.Pulse = 299;
+  sConfigOC.Pulse = 999;
   sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
   sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
   sConfigOC.OCIdleState = TIM_OCIDLESTATE_RESET;
@@ -533,7 +554,7 @@ static void MX_TIM3_Init(void)
   htim3.Instance = TIM3;
   htim3.Init.Prescaler = 720-1;
   htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim3.Init.Period = 1000-1;
+  htim3.Init.Period = 2000-1;
   htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim3) != HAL_OK)
@@ -556,18 +577,19 @@ static void MX_TIM3_Init(void)
     Error_Handler();
   }
   sConfigOC.OCMode = TIM_OCMODE_PWM1;
-  sConfigOC.Pulse = 75;
+  sConfigOC.Pulse = 150;
   sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
   sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
   if (HAL_TIM_PWM_ConfigChannel(&htim3, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
   {
     Error_Handler();
   }
+  sConfigOC.Pulse = 250;
   if (HAL_TIM_PWM_ConfigChannel(&htim3, &sConfigOC, TIM_CHANNEL_2) != HAL_OK)
   {
     Error_Handler();
   }
-  sConfigOC.Pulse = 40;
+  sConfigOC.Pulse = 50;
   if (HAL_TIM_PWM_ConfigChannel(&htim3, &sConfigOC, TIM_CHANNEL_3) != HAL_OK)
   {
     Error_Handler();
@@ -633,6 +655,7 @@ static void MX_TIM4_Init(void)
   {
     Error_Handler();
   }
+  sConfigOC.Pulse = 8;
   if (HAL_TIM_PWM_ConfigChannel(&htim4, &sConfigOC, TIM_CHANNEL_2) != HAL_OK)
   {
     Error_Handler();
