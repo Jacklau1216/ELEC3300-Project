@@ -113,30 +113,33 @@ void gradual_change_PWM(TIM_HandleTypeDef* htim, uint32_t channel, uint16_t curr
 
 void ARM_StandByPosition()
 {
-	//__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, 180);
-	//HAL_Delay(500);
+	uint16_t current_tim3_ch3 = __HAL_TIM_GET_COMPARE(&htim3, TIM_CHANNEL_3);
+
+	//gradual_change_PWM(&htim3, TIM_CHANNEL_3, current_tim3_ch3, 50, 10);
+	__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_3, 50);
+	HAL_Delay(500);
 	__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, 150);
 	__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, 250);
-	__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_3, 50);
 	__HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_1, 15);
 	__HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_2, 8);
 	HAL_Delay(300);
 }
 
-void ARM_stretch(uint32_t distance)
+void ARM_stretch(uint8_t distance)
 {
 	uint16_t current_tim3_ch1 = __HAL_TIM_GET_COMPARE(&htim3, TIM_CHANNEL_1);
 	uint16_t current_tim3_ch2 = __HAL_TIM_GET_COMPARE(&htim3, TIM_CHANNEL_2);
 	uint16_t current_tim4_ch2 = __HAL_TIM_GET_COMPARE(&htim4, TIM_CHANNEL_2);
 
-	uint16_t new_tim3_ch2 = 220; //arm arm
-	uint16_t new_tim3_ch1 = 100; //arm base
-	uint16_t new_tim4_ch2 = 13; //claw up down
+	uint16_t new_tim3_ch2 = 190; //arm arm
+	uint16_t new_tim3_ch1 = 72; //arm base
+	uint16_t new_tim4_ch2 = 12; //claw up down
 
 	//calculate the PWM by the distance: range is 5 to 15 cm
 
 
 	//stretch (varies in distance)
+	__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_3, 50); //confirm arm is in the front
 	__HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_1, 17); //claw grab
 	gradual_change_PWM(&htim4, TIM_CHANNEL_2, current_tim4_ch2, new_tim4_ch2, 5); //claw up down
 	HAL_Delay(100);
@@ -149,20 +152,20 @@ void ARM_prepare_to_release()
 	//rise the arm to the position so that the ball can directly release when reach on the top of the box
 	uint16_t current_tim3_ch1 = __HAL_TIM_GET_COMPARE(&htim3, TIM_CHANNEL_1);
 	uint16_t current_tim3_ch2 = __HAL_TIM_GET_COMPARE(&htim3, TIM_CHANNEL_2);
+	uint16_t current_tim3_ch3 = __HAL_TIM_GET_COMPARE(&htim3, TIM_CHANNEL_3);
 	uint16_t current_tim4_ch2 = __HAL_TIM_GET_COMPARE(&htim4, TIM_CHANNEL_2);
 
-	gradual_change_PWM(&htim4, TIM_CHANNEL_2, current_tim4_ch2, 11, 3); //claw up down
-	//__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, 100); //arm arm
-
-
-	gradual_change_PWM(&htim3, TIM_CHANNEL_2, current_tim3_ch2, 230, 5); //arm arm
-	//__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, 170); //arm base
+	__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, 200); //arm base
+	gradual_change_PWM(&htim3, TIM_CHANNEL_1, current_tim3_ch1, 190, 5); //arm base
 	HAL_Delay(500);
-	__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, 180); //arm base
-	gradual_change_PWM(&htim3, TIM_CHANNEL_1, current_tim3_ch1, 170, 5); //arm base
+	gradual_change_PWM(&htim3, TIM_CHANNEL_2, current_tim3_ch2, 240, 5); //arm arm
+
+	gradual_change_PWM(&htim4, TIM_CHANNEL_2, current_tim4_ch2, 11, 3); //claw up down
 
 	//rotate 180 to back
-	__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_3, 200); //base rotation
+	__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_3, 250); //base rotation
+	HAL_Delay(500);
+	//gradual_change_PWM(&htim3, TIM_CHANNEL_3, current_tim3_ch3, 250, 10); //base rotation
 }
 /* USER CODE END 0 */
 
@@ -216,7 +219,7 @@ int main(void)
   /* USER CODE BEGIN WHILE */
 //  while(Ov7725_Init() != SUCCESS);
 //  	Ov7725_vsync = 0;
-
+  ARM_StandByPosition();
   while (1)
   {
 //	  if (Ov7725_vsync == 2)
@@ -382,7 +385,7 @@ int main(void)
 			}
 			else if (Rxstr == 'Z'){
 				//adjust the arm, prepare to grab the ball
-				uint32_t distance = 10;
+				uint8_t distance = 10;
 				//first find the distance of the ball
 				/*
 				 *
@@ -398,7 +401,7 @@ int main(void)
 			}
 			else if (Rxstr == 'X') {
 				//grab the ball
-				__HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_1, 11);
+				__HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_1, 9);
 			}
 			else if (Rxstr == 'C') {
 				//prepare the release
@@ -505,7 +508,7 @@ static void MX_TIM1_Init(void)
     Error_Handler();
   }
   sConfigOC.OCMode = TIM_OCMODE_PWM1;
-  sConfigOC.Pulse = 999;
+  sConfigOC.Pulse = 299;
   sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
   sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
   sConfigOC.OCIdleState = TIM_OCIDLESTATE_RESET;
