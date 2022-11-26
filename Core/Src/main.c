@@ -224,24 +224,10 @@ if (mode == 1)
 
 	  while (1)
 	  {
-
-	//		if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_0) == GPIO_PIN_SET) {
-				//HAL_UART_Transmit(&huart1,strK1,sizeof(strK1)-1,100);
-	//			HAL_GPIO_WritePin(GPIOB, GPIO_PIN_1, GPIO_PIN_SET);
-	//			HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5, GPIO_PIN_RESET);
-	//			ARM_stretch(10);
-	//			HAL_Delay(500);
-	//			__HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_1, 11);
-	//			HAL_Delay(500);
-	//			__HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_1, 18);
-	//			HAL_Delay(500);
-	//			ARM_StandByPosition();
-	//			HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5, GPIO_PIN_SET);
-	//			HAL_GPIO_WritePin(GPIOB, GPIO_PIN_1, GPIO_PIN_RESET);
-	//		}
-		  HCSR04_Read();
-		  HAL_UART_Transmit(&huart1, &Distance, 1 ,100);
-		  HAL_Delay(1000);
+//			sensor testing
+//			HCSR04_Read();
+//			HAL_UART_Transmit(&huart1, &Distance, 1 ,100);
+//			HAL_Delay(1000);
 			if (HAL_UART_Receive(&huart1,&Rxstr,1,100)==HAL_OK) {
 				if (Rxstr == 'R') {
 					HAL_GPIO_WritePin(GPIOB, GPIO_PIN_1, GPIO_PIN_SET);
@@ -384,7 +370,6 @@ if (mode == 1)
 					//!!!!!test ultrasonic sensor only, plz replace it to distance find by circle detection
 					HCSR04_Read();
 					distance = Distance;
-					char int_str[10];
 					HAL_UART_Transmit(&huart1, &distance, 1 ,100);
 
 					//go to arm position
