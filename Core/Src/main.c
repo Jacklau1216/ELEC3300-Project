@@ -1,85 +1,24 @@
-/* USER CODE BEGIN Header */
-/**
-  ******************************************************************************
-  * @file           : main.c
-  * @brief          : Main program body
-  ******************************************************************************
-  * @attention
-  *
-  * <h2><center>&copy; Copyright (c) 2019 STMicroelectronics.
-  * All rights reserved.</center></h2>
-  *
-  * This software component is licensed by ST under BSD 3-Clause license,
-  * the "License"; You may not use this file except in compliance with the
-  * License. You may obtain a copy of the License at:
-  *                        opensource.org/licenses/BSD-3-Clause
-  *
-  ******************************************************************************
-  */
-/* USER CODE END Header */
-/* Includes ------------------------------------------------------------------*/
 #include "main.h"
-
-/* Private includes ----------------------------------------------------------*/
-/* USER CODE BEGIN Includes */
 #include "bsp_ov7725.h"
 #include "bsp_sccb.h"
-/* USER CODE END Includes */
-
-/* Private typedef -----------------------------------------------------------*/
-/* USER CODE BEGIN PTD */
-
-/* USER CODE END PTD */
-
-/* Private define ------------------------------------------------------------*/
-/* USER CODE BEGIN PD */
-
-/* USER CODE END PD */
-
-/* Private macro -------------------------------------------------------------*/
-/* USER CODE BEGIN PM */
-
-/* USER CODE END PM */
-
-/* Private variables ---------------------------------------------------------*/
  TIM_HandleTypeDef htim1;
 TIM_HandleTypeDef htim3;
 TIM_HandleTypeDef htim4;
+TIM_HandleTypeDef htim8;
 
 UART_HandleTypeDef huart1;
 
-/* USER CODE BEGIN PV */
-
-/* USER CODE END PV */
-
-/* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_USART1_UART_Init(void);
 static void MX_TIM3_Init(void);
 static void MX_TIM4_Init(void);
 static void MX_TIM1_Init(void);
-/* USER CODE BEGIN PFP */
+static void MX_TIM8_Init(void);
+
 volatile uint8_t Ov7725_vsync;
-/* USER CODE END PFP */
 
-/* Private user code ---------------------------------------------------------*/
-/* USER CODE BEGIN 0 */
 uint8_t Rxstr;
-
-
-/*ARM PIN note
- *
- * timer3 is arm
- * timer4 is claw
- *
- * PA6 is htim3 channel 1 arm base
- * PA7 is htim3 channel 2 arm arm
- * PB0 is htim3 channel 3 base rotation
- * PB6 is htim4 channel 1 claw grab
- * PB7 is htim4 channel 2 claw up down
- *
- */
 void gradual_change_PWM(TIM_HandleTypeDef* htim, uint32_t channel, uint16_t current, uint16_t new, uint8_t step)
 {
 	uint16_t temp = current;
@@ -129,12 +68,17 @@ void ARM_stretch(uint8_t distance)
 	uint16_t current_tim3_ch2 = __HAL_TIM_GET_COMPARE(&htim3, TIM_CHANNEL_2);
 	uint16_t current_tim4_ch2 = __HAL_TIM_GET_COMPARE(&htim4, TIM_CHANNEL_2);
 
-	uint16_t new_tim3_ch2 = 190; //arm arm
-	uint16_t new_tim3_ch1 = 72; //arm base
-	uint16_t new_tim4_ch2 = 12; //claw up down
+	//check distance range (10-18cm)
+	if(distance < 10) {
+		distance = 10;
+	} else if (distance > 18) {
+		distance = 18;
+	}
 
-	//calculate the PWM by the distance: range is 5 to 15 cm
-
+	//calculate the PWM by the distance:
+	uint16_t new_tim3_ch1 = 72 + (18-distance)/(18-10)*(100-72); //arm base
+	uint16_t new_tim3_ch2 = 190 + (18-distance)/(18-10)*(260-190); //arm arm
+	uint16_t new_tim4_ch2 = 12 + (18-distance)/(18-10)*(17-12); //claw up down
 
 	//stretch (varies in distance)
 	__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_3, 50); //confirm arm is in the front
@@ -154,8 +98,9 @@ void ARM_prepare_to_release()
 	uint16_t current_tim4_ch2 = __HAL_TIM_GET_COMPARE(&htim4, TIM_CHANNEL_2);
 
 	__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, 200); //arm base
-	gradual_change_PWM(&htim3, TIM_CHANNEL_1, current_tim3_ch1, 190, 5); //arm base
 	HAL_Delay(500);
+	gradual_change_PWM(&htim3, TIM_CHANNEL_1, current_tim3_ch1, 190, 5); //arm base
+
 	gradual_change_PWM(&htim3, TIM_CHANNEL_2, current_tim3_ch2, 240, 5); //arm arm
 
 	gradual_change_PWM(&htim4, TIM_CHANNEL_2, current_tim4_ch2, 11, 3); //claw up down
@@ -163,44 +108,84 @@ void ARM_prepare_to_release()
 	//rotate 180 to back
 	__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_3, 250); //base rotation
 	HAL_Delay(500);
-	//gradual_change_PWM(&htim3, TIM_CHANNEL_3, current_tim3_ch3, 250, 10); //base rotation
+	//gradual_change_PWM(&htim3, TIM_CHANNEL_3, current_tim3_ch3, 250, 5); //base rotation
 }
-/* USER CODE END 0 */
 
-/**
-  * @brief  The application entry point.
-  * @retval int
-  */
+void delay (uint16_t time)
+{
+	__HAL_TIM_SET_COUNTER(&htim8, 0);
+	while (__HAL_TIM_GET_COUNTER (&htim8) < time);
+}
+
+uint32_t IC_Val1 = 0;
+uint32_t IC_Val2 = 0;
+uint32_t Difference = 0;
+uint8_t Is_First_Captured = 0;  // is the first value captured?
+uint8_t Distance  = 0;
+
+#define TRIG_PIN GPIO_PIN_12
+#define TRIG_PORT GPIOC
+
+void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
+{
+	if (htim->Channel == HAL_TIM_ACTIVE_CHANNEL_4)  // if the interrupt source is channel4
+	{
+		if (Is_First_Captured==0) // if the first value is not captured
+		{
+			IC_Val1 = HAL_TIM_ReadCapturedValue(htim, TIM_CHANNEL_4); // read the first value
+			Is_First_Captured = 1;  // set the first captured as true
+			// Now change the polarity to falling edge
+			__HAL_TIM_SET_CAPTUREPOLARITY(htim, TIM_CHANNEL_4, TIM_INPUTCHANNELPOLARITY_FALLING);
+		}
+
+		else if (Is_First_Captured==1)   // if the first is already captured
+		{
+			IC_Val2 = HAL_TIM_ReadCapturedValue(htim, TIM_CHANNEL_4);  // read second value
+			__HAL_TIM_SET_COUNTER(htim, 0);  // reset the counter
+
+			if (IC_Val2 > IC_Val1)
+			{
+				Difference = IC_Val2-IC_Val1;
+			}
+
+			else if (IC_Val1 > IC_Val2)
+			{
+				Difference = (0xffff - IC_Val1) + IC_Val2;
+			}
+
+			Distance = Difference * .034/2;
+			Is_First_Captured = 0; // set it back to false
+
+			// set polarity to rising edge
+			__HAL_TIM_SET_CAPTUREPOLARITY(htim, TIM_CHANNEL_4, TIM_INPUTCHANNELPOLARITY_RISING);
+			__HAL_TIM_DISABLE_IT(&htim8, TIM_IT_CC4);
+		}
+	}
+}
+
+void HCSR04_Read (void)
+{
+	HAL_GPIO_WritePin(TRIG_PORT, TRIG_PIN, GPIO_PIN_SET);  // pull the TRIG pin HIGH
+	delay(10);  // wait for 10 us
+	HAL_GPIO_WritePin(TRIG_PORT, TRIG_PIN, GPIO_PIN_RESET);  // pull the TRIG pin low
+
+	__HAL_TIM_ENABLE_IT(&htim8, TIM_IT_CC4);
+}
+
 int main(void)
 {
-  /* USER CODE BEGIN 1 */
-
-  /* USER CODE END 1 */
-
-  /* MCU Configuration--------------------------------------------------------*/
-
-  /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
   HAL_Init();
 
-  /* USER CODE BEGIN Init */
-
-  /* USER CODE END Init */
-
-  /* Configure the system clock */
   SystemClock_Config();
 
-  /* USER CODE BEGIN SysInit */
-
-  /* USER CODE END SysInit */
-
-  /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_USART1_UART_Init();
   MX_TIM3_Init();
   MX_TIM4_Init();
   MX_TIM1_Init();
-  /* USER CODE BEGIN 2 */
-  HAL_TIM_PWM_Start(&htim1,TIM_CHANNEL_4);
+  MX_TIM8_Init();
+
+  HAL_TIM_IC_Start_IT(&htim8, TIM_CHANNEL_4);
   HAL_GPIO_WritePin(AIN1_GPIO_Port, AIN1_Pin, GPIO_PIN_RESET);
   HAL_GPIO_WritePin(AIN2_GPIO_Port, AIN2_Pin, GPIO_PIN_RESET);
   HAL_GPIO_WritePin(BIN1_GPIO_Port, BIN1_Pin, GPIO_PIN_RESET);
@@ -209,10 +194,6 @@ int main(void)
   HAL_GPIO_WritePin(CIN2_GPIO_Port, CIN2_Pin, GPIO_PIN_RESET);
   HAL_GPIO_WritePin(DIN1_GPIO_Port, DIN1_Pin, GPIO_PIN_RESET);
   HAL_GPIO_WritePin(DIN2_GPIO_Port, DIN2_Pin, GPIO_PIN_RESET);
-  /* USER CODE END 2 */
-
-  /* Infinite loop */
-  /* USER CODE BEGIN WHILE */
 
   ARM_StandByPosition();
   uint8_t mode = 0;
@@ -243,9 +224,7 @@ if (mode == 1)
 
 	  while (1)
 	  {
-    /* USER CODE END WHILE */
 
-    /* USER CODE BEGIN 3 */
 	//		if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_0) == GPIO_PIN_SET) {
 				//HAL_UART_Transmit(&huart1,strK1,sizeof(strK1)-1,100);
 	//			HAL_GPIO_WritePin(GPIOB, GPIO_PIN_1, GPIO_PIN_SET);
@@ -260,7 +239,9 @@ if (mode == 1)
 	//			HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5, GPIO_PIN_SET);
 	//			HAL_GPIO_WritePin(GPIOB, GPIO_PIN_1, GPIO_PIN_RESET);
 	//		}
-
+		  HCSR04_Read();
+		  HAL_UART_Transmit(&huart1, &Distance, 1 ,100);
+		  HAL_Delay(1000);
 			if (HAL_UART_Receive(&huart1,&Rxstr,1,100)==HAL_OK) {
 				if (Rxstr == 'R') {
 					HAL_GPIO_WritePin(GPIOB, GPIO_PIN_1, GPIO_PIN_SET);
@@ -399,21 +380,19 @@ if (mode == 1)
 					//adjust the arm, prepare to grab the ball
 					uint8_t distance = 10;
 					//first find the distance of the ball
-					/*
-					 *
-					 * DO after first demo
-					 *
-					 *
-					 *
-					 *
-					 */
+
+					//!!!!!test ultrasonic sensor only, plz replace it to distance find by circle detection
+					HCSR04_Read();
+					distance = Distance;
+					char int_str[10];
+					HAL_UART_Transmit(&huart1, &distance, 1 ,100);
 
 					//go to arm position
 					ARM_stretch(distance);
 				}
 				else if (Rxstr == 'X') {
 					//grab the ball
-					__HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_1, 9);
+					__HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_1, 10);
 				}
 				else if (Rxstr == 'C') {
 					//prepare the release
@@ -421,7 +400,7 @@ if (mode == 1)
 				}
 				else if (Rxstr == 'V') {
 					//release the ball and return to standby position
-					__HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_1, 18);
+					__HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_1, 17);
 					HAL_Delay(500);
 					ARM_StandByPosition();
 				}
@@ -452,7 +431,7 @@ else if (mode == 2)
 		HAL_GPIO_WritePin(GPIOB, GPIO_PIN_1, GPIO_PIN_SET);
 		while(1)
 		{
-			//foward for 0.5 second
+			//forward for 0.5 second
 			  HAL_GPIO_WritePin(AIN1_GPIO_Port, AIN1_Pin, GPIO_PIN_SET);
 			  HAL_GPIO_WritePin(AIN2_GPIO_Port, AIN2_Pin, GPIO_PIN_RESET);
 			  HAL_GPIO_WritePin(BIN1_GPIO_Port, BIN1_Pin, GPIO_PIN_SET);
@@ -506,21 +485,13 @@ else
 
 		}
 	}
-  /* USER CODE END 3 */
 }
 
-/**
-  * @brief System Clock Configuration
-  * @retval None
-  */
 void SystemClock_Config(void)
 {
   RCC_OscInitTypeDef RCC_OscInitStruct = {0};
   RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
 
-  /** Initializes the RCC Oscillators according to the specified parameters
-  * in the RCC_OscInitTypeDef structure.
-  */
   RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
   RCC_OscInitStruct.HSEState = RCC_HSE_ON;
   RCC_OscInitStruct.HSEPredivValue = RCC_HSE_PREDIV_DIV1;
@@ -616,7 +587,7 @@ static void MX_TIM1_Init(void)
     Error_Handler();
   }
   /* USER CODE BEGIN TIM1_Init 2 */
-
+  HAL_TIM_PWM_Start(&htim1,TIM_CHANNEL_4);
   /* USER CODE END TIM1_Init 2 */
   HAL_TIM_MspPostInit(&htim1);
 
@@ -759,6 +730,55 @@ static void MX_TIM4_Init(void)
 }
 
 /**
+  * @brief TIM8 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM8_Init(void)
+{
+
+  /* USER CODE BEGIN TIM8_Init 0 */
+
+  /* USER CODE END TIM8_Init 0 */
+
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+  TIM_IC_InitTypeDef sConfigIC = {0};
+
+  /* USER CODE BEGIN TIM8_Init 1 */
+
+  /* USER CODE END TIM8_Init 1 */
+  htim8.Instance = TIM8;
+  htim8.Init.Prescaler = 72-1;
+  htim8.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim8.Init.Period = 65535;
+  htim8.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim8.Init.RepetitionCounter = 0;
+  htim8.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_IC_Init(&htim8) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim8, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sConfigIC.ICPolarity = TIM_INPUTCHANNELPOLARITY_RISING;
+  sConfigIC.ICSelection = TIM_ICSELECTION_DIRECTTI;
+  sConfigIC.ICPrescaler = TIM_ICPSC_DIV1;
+  sConfigIC.ICFilter = 0;
+  if (HAL_TIM_IC_ConfigChannel(&htim8, &sConfigIC, TIM_CHANNEL_4) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM8_Init 2 */
+  HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_4);
+  /* USER CODE END TIM8_Init 2 */
+
+}
+
+/**
   * @brief USART1 Initialization Function
   * @param None
   * @retval None
@@ -811,7 +831,8 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(GPIOA, GPIO_PIN_2|GPIO_PIN_3, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_4|GPIO_PIN_5|GPIO_PIN_6|GPIO_PIN_7, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_4|GPIO_PIN_5|GPIO_PIN_6|GPIO_PIN_7
+                          |GPIO_PIN_12, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOB, GPIO_PIN_1|GPIO_PIN_5, GPIO_PIN_SET);
@@ -885,6 +906,13 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
   HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : PC12 */
+  GPIO_InitStruct.Pin = GPIO_PIN_12;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
   /* EXTI interrupt init*/
   HAL_NVIC_SetPriority(EXTI3_IRQn, 0, 0);
