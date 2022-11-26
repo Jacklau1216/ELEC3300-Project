@@ -1,5 +1,6 @@
 #include "bsp_ov7725.h"
 #include "bsp_sccb.h"
+#include "math.h"
 
 typedef struct Reg
 {
@@ -12,7 +13,7 @@ Reg_Info Sensor_Config[] =
 {
 	{CLKRC,     0x00}, /*clock config*/
 	{COM7,      0x46}, /*QVGA RGB565 */
-  {HSTART,    0x3f},
+	{HSTART,    0x3f},
 	{HSIZE,     0x50},
 	{VSTRT,     0x03},
 	{VSIZE,     0x78},
@@ -20,10 +21,10 @@ Reg_Info Sensor_Config[] =
 	{HOutSize,  0x50},
 	{VOutSize,  0x78},
 	{EXHCH,     0x00},
- 
+
 	/*DSP control*/
 	{TGT_B,     0x7f},
-	{FixGain,   0x09},
+	{FixGain,   0x09},		//analog fix gain
 	{AWB_Ctrl0, 0xe0},
 	{DSP_Ctrl1, 0xff},
 	{DSP_Ctrl2, 0x20},
@@ -45,7 +46,7 @@ Reg_Info Sensor_Config[] =
 	{COM8,		  0xff},
 	{AWBCtrl1,  0x5d},
 
-	{EDGE1,		  0x0a},
+	{EDGE1,		  0x0a},		//edge enhancement
 	{DNSOff,	  0x01},
 	{EDGE2,		  0x01},
 	{EDGE3,		  0x01},
@@ -63,9 +64,9 @@ Reg_Info Sensor_Config[] =
 	{USAT,		  0x65},
 	{VSAT,		  0x65},
 	{UVADJ0,	  0x81},
-	{SDE,		    0x06},
-	
-    /*GAMMA config*/
+	{SDE,		    0x26},	//grayscale enable
+
+	/*GAMMA config*/
 	{GAM1,		  0x0c},
 	{GAM2,		  0x16},
 	{GAM3,		  0x2a},
@@ -95,7 +96,7 @@ Reg_Info Sensor_Config[] =
 	{LC_COEFB,  0x14},
 	{LC_COEFR,  0x17},
 	{LC_CTR,	  0x05},
-	
+
 	{COM3,		  0xd0},/*Horizontal mirror image*/
 
 	/*night mode auto frame rate control*/
@@ -146,17 +147,90 @@ ErrorStatus Ov7725_Init(void)
 	return SUCCESS;
 }
 
-void ImagDisp(void)
+uint8_t ImagDisp(void)
 {
-	uint16_t i, j;
-	uint16_t Camera_Data;
-	
+	uint16_t i, j, Camera_Data;
+	uint8_t data[150][3];	//2d array for image processing
+	uint8_t cal [150][240];
+	uint8_t temp, temp2 = 0;
+	double x, y;
+
+//	LCD_Clear (50, 80, 140, 70, 0xffff);
+//	READ_FIFO_PIXEL(Camera_Data);
+//	LCD_DrawString(75, 100, itoa(Camera_Data, str, 16));
+//	HAL_Delay(1000000);
+
+//	LCD_Cam_Gram();
 	
 	for(i = 0; i < 240; i++)
 	{
+		temp = 0;
+		temp2 = i % 3;
 		for(j = 0; j < 320; j++)
 		{
-			READ_FIFO_PIXEL(Camera_Data);		
+			READ_FIFO_PIXEL(Camera_Data);
+			if (j > 100 && j <= 250)
+			{
+				data[temp++][temp2] = (uint8_t)(Camera_Data & 0x1F);
+//				LCD_Write_Data(Camera_Data);
+			}
+		}
+		x = 0;
+		temp2 = (temp2 + 2) % 3;
+		for (temp = 0; temp < 150; temp++)
+		{
+			if ( (temp != 0) & (temp != 149) & (i > 1))
+			{
+				x = (double)data[temp+1][temp2] - (double)data[temp-1][temp2];
+				y = (double)data[temp][(temp2+1)%3] - (double)data[temp][(temp2+2)%3];
+				x = sqrt(x*x + y*y);
+				if (x > 2)
+				{
+					x = 255;
+				}else{
+					x = 0;
+				}
+			}
+			cal[temp][i] = x;
+			//decode the grayscale image
+//			Camera_Data = (uint16_t)(x) << 11;
+//			Camera_Data = Camera_Data | (uint16_t)x;
+//			Camera_Data = Camera_Data | ((uint16_t)(x) << 6);
+//			LCD_Write_Data(Camera_Data);
 		}
 	}
+
+	for(i = 0; i < 240; i++)
+		{
+		for (j = 0; j < 150; j++)
+			{
+			for (temp2 = 25; temp2 < 40 ; temp2 += 5)
+				{
+				for (temp = 0; temp < 5; temp ++)
+					{
+						x = j + (double)40 * cos( (double)(360/5 * temp) );	// I let R to be 20 first
+						y = i + (double)40 * sin( (double)(360/5 * temp) );
+						if ( (x > 0) & (x < 149) & (y > 0) & (y < 239))
+						{
+							if ( cal[(uint8_t)x][(uint8_t)y] == 0 )
+							{
+								break;
+							}
+						}else
+						{
+							break;
+						}
+
+						if (temp == 4)				// there exist a circle in (x,y) with radius r if temp >= 4
+						{
+							return 1;
+						}
+					}
+				}
+			}
+		}
+
+	return 0;
+
+//	HAL_Delay(1000);
 }
