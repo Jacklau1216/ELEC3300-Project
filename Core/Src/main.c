@@ -129,12 +129,10 @@ void ARM_stretch(uint8_t distance)
 	uint16_t current_tim3_ch2 = __HAL_TIM_GET_COMPARE(&htim3, TIM_CHANNEL_2);
 	uint16_t current_tim4_ch2 = __HAL_TIM_GET_COMPARE(&htim4, TIM_CHANNEL_2);
 
-	uint16_t new_tim3_ch2 = 190; //arm arm
-	uint16_t new_tim3_ch1 = 72; //arm base
-	uint16_t new_tim4_ch2 = 12; //claw up down
-
-	//calculate the PWM by the distance: range is 5 to 15 cm
-
+	//calculate the PWM by the distance: range is 10 to 18 cm
+	uint16_t new_tim3_ch1 = 72 + (18-distance)/(18-10)*(100-72); //arm base
+	uint16_t new_tim3_ch2 = 190 + (18-distance)/(18-10)*(260-190); //arm arm
+	uint16_t new_tim4_ch2 = 12 + (18-distance)/(18-10)*(17-12); //claw up down
 
 	//stretch (varies in distance)
 	__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_3, 50); //confirm arm is in the front
@@ -154,8 +152,9 @@ void ARM_prepare_to_release()
 	uint16_t current_tim4_ch2 = __HAL_TIM_GET_COMPARE(&htim4, TIM_CHANNEL_2);
 
 	__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, 200); //arm base
-	gradual_change_PWM(&htim3, TIM_CHANNEL_1, current_tim3_ch1, 190, 5); //arm base
 	HAL_Delay(500);
+	gradual_change_PWM(&htim3, TIM_CHANNEL_1, current_tim3_ch1, 190, 5); //arm base
+
 	gradual_change_PWM(&htim3, TIM_CHANNEL_2, current_tim3_ch2, 240, 5); //arm arm
 
 	gradual_change_PWM(&htim4, TIM_CHANNEL_2, current_tim4_ch2, 11, 3); //claw up down
@@ -163,7 +162,7 @@ void ARM_prepare_to_release()
 	//rotate 180 to back
 	__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_3, 250); //base rotation
 	HAL_Delay(500);
-	//gradual_change_PWM(&htim3, TIM_CHANNEL_3, current_tim3_ch3, 250, 10); //base rotation
+	//gradual_change_PWM(&htim3, TIM_CHANNEL_3, current_tim3_ch3, 250, 5); //base rotation
 }
 /* USER CODE END 0 */
 
@@ -413,7 +412,7 @@ if (mode == 1)
 				}
 				else if (Rxstr == 'X') {
 					//grab the ball
-					__HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_1, 9);
+					__HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_1, 10);
 				}
 				else if (Rxstr == 'C') {
 					//prepare the release
@@ -421,7 +420,7 @@ if (mode == 1)
 				}
 				else if (Rxstr == 'V') {
 					//release the ball and return to standby position
-					__HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_1, 18);
+					__HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_1, 17);
 					HAL_Delay(500);
 					ARM_StandByPosition();
 				}
