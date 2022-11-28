@@ -76,9 +76,9 @@ void ARM_stretch(uint8_t distance)
 	}
 
 	//calculate the PWM by the distance:
-	uint16_t new_tim3_ch1 = 72 + (18-distance)/(18-10)*(100-72); //arm base
-	uint16_t new_tim3_ch2 = 190 + (18-distance)/(18-10)*(260-190); //arm arm
-	uint16_t new_tim4_ch2 = 12 + (18-distance)/(18-10)*(17-12); //claw up down
+	uint16_t new_tim3_ch1 = 72 + (100-72)*(18-distance)/(18-10); //arm base
+	uint16_t new_tim3_ch2 = 190 + (260-190)*(18-distance)/(18-10); //arm arm
+	uint16_t new_tim4_ch2 = 12 + (17-12)*(18-distance)/(18-10); //claw up down
 
 	//stretch (varies in distance)
 	__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_3, 50); //confirm arm is in the front
@@ -97,9 +97,9 @@ void ARM_prepare_to_release()
 //	uint16_t current_tim3_ch3 = __HAL_TIM_GET_COMPARE(&htim3, TIM_CHANNEL_3);
 	uint16_t current_tim4_ch2 = __HAL_TIM_GET_COMPARE(&htim4, TIM_CHANNEL_2);
 
-	__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, 200); //arm base
+	__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, 190); //arm base
 	HAL_Delay(500);
-	gradual_change_PWM(&htim3, TIM_CHANNEL_1, current_tim3_ch1, 190, 5); //arm base
+	gradual_change_PWM(&htim3, TIM_CHANNEL_1, current_tim3_ch1, 200, 5); //arm base
 
 	gradual_change_PWM(&htim3, TIM_CHANNEL_2, current_tim3_ch2, 240, 5); //arm arm
 
@@ -441,7 +441,7 @@ else if (mode == 2)
 				HAL_GPIO_WritePin(CIN2_GPIO_Port, CIN2_Pin, GPIO_PIN_SET);
 				HAL_GPIO_WritePin(DIN1_GPIO_Port, DIN1_Pin, GPIO_PIN_SET);
 				HAL_GPIO_WritePin(DIN2_GPIO_Port, DIN2_Pin, GPIO_PIN_RESET);
-				HAL_Delay(2700/2);
+				HAL_Delay(2500/2);
 				continue;
 			}
 			//forward for 0.5 second
@@ -475,7 +475,7 @@ else if (mode == 2)
 				  HAL_GPIO_WritePin(DIN1_GPIO_Port, DIN1_Pin, GPIO_PIN_SET);
 				  HAL_GPIO_WritePin(DIN2_GPIO_Port, DIN2_Pin, GPIO_PIN_RESET);
 				  // pause and detect
-				  HAL_Delay(2700/20);
+				  HAL_Delay(3500/20);
 				  HAL_GPIO_WritePin(AIN1_GPIO_Port, AIN1_Pin, GPIO_PIN_RESET);
 				  HAL_GPIO_WritePin(AIN2_GPIO_Port, AIN2_Pin, GPIO_PIN_RESET);
 				  HAL_GPIO_WritePin(BIN1_GPIO_Port, BIN1_Pin, GPIO_PIN_RESET);
@@ -493,6 +493,15 @@ else if (mode == 2)
 							  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5, GPIO_PIN_SET);
 							  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_1, GPIO_PIN_RESET);
 							  ARM_stretch(temp_d);
+							  HAL_Delay(3000);
+							  __HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_1, 10);
+							  HAL_Delay(2000);
+							  ARM_prepare_to_release();
+							  HAL_Delay(2000);
+							  __HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_1, 17);
+							  HAL_Delay(1000);
+							  ARM_StandByPosition();
+
 						  }
 						  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5, GPIO_PIN_SET);
 						  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_1, GPIO_PIN_SET);

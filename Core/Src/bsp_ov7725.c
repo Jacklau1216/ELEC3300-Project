@@ -204,12 +204,12 @@ uint8_t ImagDisp(void)
 		{
 		for (j = 0; j < 150; j++)
 			{
-			for (temp2 = 25; temp2 < 40 ; temp2 += 5)
+			for (temp2 = 25; temp2 < 55 ; temp2 += 2)
 				{
 				for (temp = 0; temp < 5; temp ++)
 					{
-						x = j + (double)40 * cos( (double)(360/5 * temp) );	// I let R to be 20 first
-						y = i + (double)40 * sin( (double)(360/5 * temp) );
+						x = j + (double)temp2 * cos( (double)(360/5 * temp) );	// I let R to be 20 first
+						y = i + (double)temp2 * sin( (double)(360/5 * temp) );
 						if ( (x > 0) & (x < 149) & (y > 0) & (y < 239))
 						{
 							if ( cal[(uint8_t)x][(uint8_t)y] == 0 )
@@ -223,7 +223,7 @@ uint8_t ImagDisp(void)
 
 						if (temp == 4)				// there exist a circle in (x,y) with radius r if temp >= 4
 						{
-							return 1;
+							return  18 - (temp2 - 25)/2;
 						}
 					}
 				}
