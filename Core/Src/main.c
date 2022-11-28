@@ -50,7 +50,7 @@ void gradual_change_PWM(TIM_HandleTypeDef* htim, uint32_t channel, uint16_t curr
 
 void ARM_StandByPosition()
 {
-	uint16_t current_tim3_ch3 = __HAL_TIM_GET_COMPARE(&htim3, TIM_CHANNEL_3);
+//	uint16_t current_tim3_ch3 = __HAL_TIM_GET_COMPARE(&htim3, TIM_CHANNEL_3);
 
 	//gradual_change_PWM(&htim3, TIM_CHANNEL_3, current_tim3_ch3, 50, 10);
 	__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_3, 50);
@@ -94,7 +94,7 @@ void ARM_prepare_to_release()
 	//rise the arm to the position so that the ball can directly release when reach on the top of the box
 	uint16_t current_tim3_ch1 = __HAL_TIM_GET_COMPARE(&htim3, TIM_CHANNEL_1);
 	uint16_t current_tim3_ch2 = __HAL_TIM_GET_COMPARE(&htim3, TIM_CHANNEL_2);
-	uint16_t current_tim3_ch3 = __HAL_TIM_GET_COMPARE(&htim3, TIM_CHANNEL_3);
+//	uint16_t current_tim3_ch3 = __HAL_TIM_GET_COMPARE(&htim3, TIM_CHANNEL_3);
 	uint16_t current_tim4_ch2 = __HAL_TIM_GET_COMPARE(&htim4, TIM_CHANNEL_2);
 
 	__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, 200); //arm base
@@ -368,9 +368,9 @@ if (mode == 1)
 					//first find the distance of the ball
 
 					//!!!!!test ultrasonic sensor only, plz replace it to distance find by circle detection
-					HCSR04_Read();
-					distance = Distance;
-					HAL_UART_Transmit(&huart1, &distance, 1 ,100);
+//					HCSR04_Read();
+//					distance = Distance;
+//					HAL_UART_Transmit(&huart1, &distance, 1 ,100);
 
 					//go to arm position
 					ARM_stretch(distance);
@@ -398,8 +398,9 @@ if (mode == 1)
 	}
 else if (mode == 2)
 	{
-	//  while(Ov7725_Init() != SUCCESS);
-	//  	Ov7725_vsync = 0;
+		uint8_t temp_d = 0;
+	  while(Ov7725_Init() != SUCCESS){};
+	  	Ov7725_vsync = 0;
 	//	  if (Ov7725_vsync == 2)
 	//	  {
 	//		  FIFO_PREPARE;
@@ -416,6 +417,33 @@ else if (mode == 2)
 		HAL_GPIO_WritePin(GPIOB, GPIO_PIN_1, GPIO_PIN_SET);
 		while(1)
 		{
+			//check the distance before moving forward
+			HCSR04_Read();
+			HAL_Delay(500);
+			if (Distance <30)
+			{
+				// right movement
+				HAL_GPIO_WritePin(AIN1_GPIO_Port, AIN1_Pin, GPIO_PIN_RESET);
+				HAL_GPIO_WritePin(AIN2_GPIO_Port, AIN2_Pin, GPIO_PIN_SET);
+				HAL_GPIO_WritePin(BIN1_GPIO_Port, BIN1_Pin, GPIO_PIN_SET);
+				HAL_GPIO_WritePin(BIN2_GPIO_Port, BIN2_Pin, GPIO_PIN_RESET);
+				HAL_GPIO_WritePin(CIN1_GPIO_Port, CIN1_Pin, GPIO_PIN_RESET);
+				HAL_GPIO_WritePin(CIN2_GPIO_Port, CIN2_Pin, GPIO_PIN_SET);
+				HAL_GPIO_WritePin(DIN1_GPIO_Port, DIN1_Pin, GPIO_PIN_SET);
+				HAL_GPIO_WritePin(DIN2_GPIO_Port, DIN2_Pin, GPIO_PIN_RESET);
+				HAL_Delay(1000);
+				// Counter Clock Wise for 180 degrees
+				HAL_GPIO_WritePin(AIN1_GPIO_Port, AIN1_Pin, GPIO_PIN_SET);
+				HAL_GPIO_WritePin(AIN2_GPIO_Port, AIN2_Pin, GPIO_PIN_RESET);
+				HAL_GPIO_WritePin(BIN1_GPIO_Port, BIN1_Pin, GPIO_PIN_RESET);
+				HAL_GPIO_WritePin(BIN2_GPIO_Port, BIN2_Pin, GPIO_PIN_SET);
+				HAL_GPIO_WritePin(CIN1_GPIO_Port, CIN1_Pin, GPIO_PIN_RESET);
+				HAL_GPIO_WritePin(CIN2_GPIO_Port, CIN2_Pin, GPIO_PIN_SET);
+				HAL_GPIO_WritePin(DIN1_GPIO_Port, DIN1_Pin, GPIO_PIN_SET);
+				HAL_GPIO_WritePin(DIN2_GPIO_Port, DIN2_Pin, GPIO_PIN_RESET);
+				HAL_Delay(2700/2);
+				continue;
+			}
 			//forward for 0.5 second
 			  HAL_GPIO_WritePin(AIN1_GPIO_Port, AIN1_Pin, GPIO_PIN_SET);
 			  HAL_GPIO_WritePin(AIN2_GPIO_Port, AIN2_Pin, GPIO_PIN_RESET);
@@ -436,7 +464,7 @@ else if (mode == 2)
 			  HAL_GPIO_WritePin(DIN1_GPIO_Port, DIN1_Pin, GPIO_PIN_RESET);
 			  HAL_GPIO_WritePin(DIN2_GPIO_Port, DIN2_Pin, GPIO_PIN_RESET);
 			  //detection the circle around
-			  for (uint8_t temp = 0; temp < 5; temp ++){
+			  for (uint8_t temp = 0; temp < 20; temp ++){
 				  // Counter Clock Wise
 				  HAL_GPIO_WritePin(AIN1_GPIO_Port, AIN1_Pin, GPIO_PIN_SET);
 				  HAL_GPIO_WritePin(AIN2_GPIO_Port, AIN2_Pin, GPIO_PIN_RESET);
@@ -447,7 +475,7 @@ else if (mode == 2)
 				  HAL_GPIO_WritePin(DIN1_GPIO_Port, DIN1_Pin, GPIO_PIN_SET);
 				  HAL_GPIO_WritePin(DIN2_GPIO_Port, DIN2_Pin, GPIO_PIN_RESET);
 				  // pause and detect
-				  HAL_Delay(1000);
+				  HAL_Delay(2700/20);
 				  HAL_GPIO_WritePin(AIN1_GPIO_Port, AIN1_Pin, GPIO_PIN_RESET);
 				  HAL_GPIO_WritePin(AIN2_GPIO_Port, AIN2_Pin, GPIO_PIN_RESET);
 				  HAL_GPIO_WritePin(BIN1_GPIO_Port, BIN1_Pin, GPIO_PIN_RESET);
@@ -456,7 +484,20 @@ else if (mode == 2)
 				  HAL_GPIO_WritePin(CIN2_GPIO_Port, CIN2_Pin, GPIO_PIN_RESET);
 				  HAL_GPIO_WritePin(DIN1_GPIO_Port, DIN1_Pin, GPIO_PIN_RESET);
 				  HAL_GPIO_WritePin(DIN2_GPIO_Port, DIN2_Pin, GPIO_PIN_RESET);
-				  HAL_Delay(1000);
+				  if (Ov7725_vsync == 2)
+					  {
+						  FIFO_PREPARE;
+						  temp_d = ImagDisp();
+						  if (temp_d != 0)
+						  {
+							  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5, GPIO_PIN_SET);
+							  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_1, GPIO_PIN_RESET);
+							  ARM_stretch(temp_d);
+						  }
+						  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5, GPIO_PIN_SET);
+						  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_1, GPIO_PIN_SET);
+						  Ov7725_vsync = 0;
+					  }
 			  }
 		}
 	}
@@ -854,12 +895,19 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : PC4 PC5 PC6 PC7 */
-  GPIO_InitStruct.Pin = GPIO_PIN_4|GPIO_PIN_5|GPIO_PIN_6|GPIO_PIN_7;
+  /*Configure GPIO pins : PC4 PC5 */
+  GPIO_InitStruct.Pin = GPIO_PIN_4|GPIO_PIN_5;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : PC6 PC7 */
+    GPIO_InitStruct.Pin = GPIO_PIN_6|GPIO_PIN_7;
+    GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_OD;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
+    HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
   /*Configure GPIO pins : PB1 PB5 */
   GPIO_InitStruct.Pin = GPIO_PIN_1|GPIO_PIN_5;
